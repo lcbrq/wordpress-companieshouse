@@ -28,6 +28,7 @@ class Companieshouse {
     {
         $this->api_key = get_option('companieshouse_api_key');
         add_shortcode('companieshouse', array($this, 'shortcode_form'));
+        add_action('init', array($this, 'result_page'));
     }
 
     /**
@@ -56,28 +57,72 @@ class Companieshouse {
         }
     }
 
-    function shortcode_form()
+    /**
+     * Get results array from search query
+     * 
+     * @param string $name
+     * @return array
+     */
+    public function get_companies($name)
+    {
+        $companies = array();
+        $result = $this->search($name);
+        if ($result && isset($result->items)) {
+            foreach ($result->items as $company) {
+                $companies[$company->title] = $company;
+            }
+        }
+        return $companies;
+    }
+
+    /**
+     * Get search form template
+     * 
+     * @return string
+     */
+    public function shortcode_form()
     {
         ob_start();
-        $this->get_template('form.php');
+        $this->get_html('form.php');
         return ob_get_clean();
+    }
+
+    /**
+     * Render search result template
+     * 
+     * @return void
+     */
+    public function result_page()
+    {
+        $url_path = trim(parse_url(add_query_arg(array()), PHP_URL_PATH), '/');
+        if ($url_path === 'company/search') {
+            $load = $this->get_html('results.php');
+            if ($load) {
+                exit(); // just exit if template was found and loaded
+            }
+        }
     }
 
     /**
      * Render from absolute path to given template, use theme file if exist
      * 
      * @param string $file
-     * @return void
+     * @return string
      */
-    public function get_template($file)
+    public function get_html($file)
     {
+
+        ob_start();
+
         $path = plugin_dir_path(__FILE__) . '/templates/' . $file;
 
         if (file_exists(get_stylesheet_directory() . '/companieshouse/' . $file)) {
-            return require_once(get_stylesheet_directory() . '/companieshouse/' . $file);
+            include(get_stylesheet_directory() . '/companieshouse/' . $file);
+        } elseif (file_exists($path)) {
+            include($path);
         }
 
-        return require_once($path);
+        return ob_get_contents();
     }
 
 }
